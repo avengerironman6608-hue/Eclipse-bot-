@@ -63,11 +63,36 @@ class Chat(commands.Cog):
         messages = list(history)
 
         try:
+            
+    def _fallback_response(self, message: str) -> str:
+        msg = message.lower()
+        if any(w in msg for w in ["hi", "hello", "hey", "sup", "yo"]):
+            return random.choice([
+       async def _ask_ai(self, guild_id: int, user_id: int, user_message: str) -> str:
+        api_key = self._get_api_key()
+
+        # === TEMPORARY DEBUG ===
+        print(f"[Chat Debug] API Key present: {bool(api_key)} | Length: {len(api_key)}")
+        if api_key:
+            print(f"[Chat Debug] Key starts with: {api_key[:30]}...")
+        else:
+            print("[Chat Debug] No API key found!")
+        # =======================
+
+        if not api_key:
+            print("[Chat] WARNING: ANTHROPIC_API_KEY not set — using fallback.")
+            return self._fallback_response(user_message)
+
+        history = self.history[guild_id][user_id]
+        history.append({"role": "user", "content": user_message})
+        messages = list(history)
+
+        try:
             async with aiohttp.ClientSession() as session:
                 payload = {
-                    "model": "claude-haiku-4-5",
+                    "model": "claude-haiku-4-5",      # Best for chat bots
                     "max_tokens": 500,
-                    "temperature": 0.8,  
+                    "temperature": 0.85,
                     "system": SYSTEM_PROMPT,
                     "messages": messages,
                 }
@@ -85,8 +110,9 @@ class Chat(commands.Cog):
                     data = await resp.json()
 
                     if resp.status != 200:
-                        err = data.get("error", {}).get("message", "Unknown error")
-                        print(f"[Chat] API error {resp.status}: {err}")
+                        err = data.get("error", {}) if isinstance(data, dict) else {}
+                        print(f"[Chat] API error {resp.status}: {err.get('message', str(data))}")
+                        print(f"[Chat Debug] Full error response: {data}")
                         history.pop()
                         return self._fallback_response(user_message)
 
@@ -100,13 +126,7 @@ class Chat(commands.Cog):
                 history.pop()
             except Exception:
                 pass
-            return self._fallback_response(user_message)
-
-    def _fallback_response(self, message: str) -> str:
-        msg = message.lower()
-        if any(w in msg for w in ["hi", "hello", "hey", "sup", "yo"]):
-            return random.choice([
-                "Hey there! 🌑 What's up?",
+            return self._fallback_response(user_message)         "Hey there! 🌑 What's up?",
                 "Hello! The Eclipse is watching over you ✨",
                 "Yo! What can I do for you? 😎",
             ])
