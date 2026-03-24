@@ -62,9 +62,9 @@ class Chat(commands.Cog):
         history.append({"role": "user", "content": user_message})
         messages = list(history)
 
-        try:
-            
-    def _fallback_response(self, message: str) -> str:
+        try: 
+        
+def _fallback_response(self, message: str) -> str:
         msg = message.lower()
         if any(w in msg for w in ["hi", "hello", "hey", "sup", "yo"]):
             return random.choice([
