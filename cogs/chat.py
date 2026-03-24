@@ -68,7 +68,7 @@ class Chat(commands.Cog):
         msg = message.lower()
         if any(w in msg for w in ["hi", "hello", "hey", "sup", "yo"]):
             return random.choice([
-       async def _ask_ai(self, guild_id: int, user_id: int, user_message: str) -> str:
+async def _ask_ai(self, guild_id: int, user_id: int, user_message: str) -> str:
         api_key = self._get_api_key()
 
         # === TEMPORARY DEBUG ===
@@ -90,7 +90,7 @@ class Chat(commands.Cog):
         try:
             async with aiohttp.ClientSession() as session:
                 payload = {
-                    "model": "claude-haiku-4-5",      # Best for chat bots
+                    "model": "claude-haiku-4-5",      # Fast & good for Discord
                     "max_tokens": 500,
                     "temperature": 0.85,
                     "system": SYSTEM_PROMPT,
@@ -115,6 +115,18 @@ class Chat(commands.Cog):
                         print(f"[Chat Debug] Full error response: {data}")
                         history.pop()
                         return self._fallback_response(user_message)
+
+                    reply = data["content"][0]["text"].strip()
+                    history.append({"role": "assistant", "content": reply})
+                    return reply
+
+        except Exception as e:
+            print(f"[Chat] Request failed: {type(e).__name__}: {e}")
+            try:
+                history.pop()
+            except Exception:
+                pass
+            return self._fallback_response(user_message)
 
                     reply = data["content"][0]["text"].strip()
                     history.append({"role": "assistant", "content": reply})
