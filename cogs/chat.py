@@ -88,10 +88,9 @@ async def _ask_ai(self, guild_id: int, user_id: int, user_message: str) -> str:
         messages = list(history)
 
         try:
-                
             async with aiohttp.ClientSession() as session:
                 payload = {
-                    "model": "claude-haiku-4-5",      # Fast and recommended for chat
+                    "model": "claude-haiku-4-5",
                     "max_tokens": 500,
                     "temperature": 0.85,
                     "system": SYSTEM_PROMPT,
