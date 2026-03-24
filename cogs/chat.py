@@ -124,7 +124,6 @@ async def _ask_ai(self, guild_id: int, user_id: int, user_message: str) -> str:
         except Exception as e:
             print(f"[Chat] Request failed: {type(e).__name__}: {e}")
             try:
-                         
                 history.pop()
             except Exception:
                 pass
