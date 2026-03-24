@@ -54,30 +54,13 @@ class Chat(commands.Cog):
     async def _ask_ai(self, guild_id: int, user_id: int, user_message: str) -> str:
         api_key = self._get_api_key()
 
-        if not api_key:
-            print("[Chat] WARNING: ANTHROPIC_API_KEY not set — using fallback.")
-            return self._fallback_response(user_message)
-
-        history = self.history[guild_id][user_id]
-        history.append({"role": "user", "content": user_message})
-        messages = list(history)
-
-        try: 
-        
-def _fallback_response(self, message: str) -> str:
-        msg = message.lower()
-        if any(w in msg for w in ["hi", "hello", "hey", "sup", "yo"]):
-            return random.choice([
-async def _ask_ai(self, guild_id: int, user_id: int, user_message: str) -> str:
-        api_key = self._get_api_key()
-
-        # === TEMPORARY DEBUG ===
+        # === TEMPORARY DEBUG - REMOVE LATER ===
         print(f"[Chat Debug] API Key present: {bool(api_key)} | Length: {len(api_key)}")
         if api_key:
             print(f"[Chat Debug] Key starts with: {api_key[:30]}...")
         else:
             print("[Chat Debug] No API key found!")
-        # =======================
+        # ======================================
 
         if not api_key:
             print("[Chat] WARNING: ANTHROPIC_API_KEY not set — using fallback.")
@@ -90,9 +73,9 @@ async def _ask_ai(self, guild_id: int, user_id: int, user_message: str) -> str:
         try:
             async with aiohttp.ClientSession() as session:
                 payload = {
-                    "model": "claude-haiku-4-5",
+                    "model": "claude-haiku-4-5",      # Fast and good for Discord chat
                     "max_tokens": 500,
-                    "temperature": 0.85,
+                    "temperature": 0.85,              # Makes responses more natural
                     "system": SYSTEM_PROMPT,
                     "messages": messages,
                 }
@@ -112,7 +95,7 @@ async def _ask_ai(self, guild_id: int, user_id: int, user_message: str) -> str:
                     if resp.status != 200:
                         err = data.get("error", {}) if isinstance(data, dict) else {}
                         print(f"[Chat] API error {resp.status}: {err.get('message', str(data))}")
-                        print(f"[Chat Debug] Full error: {data}")
+                        print(f"[Chat Debug] Full error response: {data}")
                         history.pop()
                         return self._fallback_response(user_message)
 
@@ -127,6 +110,128 @@ async def _ask_ai(self, guild_id: int, user_id: int, user_message: str) -> str:
             except Exception:
                 pass
             return self._fallback_response(user_message)
+
+    def _fallback_response(self, message: str) -> str:
+        msg = message.lower()
+        if any(w in msg for w in ["hi", "hello", "hey", "sup", "yo"]):
+            return random.choice([
+                "Hey there! 🌑 What's up?",
+                "Hello! The Eclipse is watching over you ✨",
+                "Yo! What can I do for you? 😎",
+            ])
+        if any(w in msg for w in ["bye", "goodbye", "cya", "later"]):
+            return random.choice(["See you around! 🌑", "Catch you later! ✨", "Bye! 🌙"])
+        if "how are you" in msg:
+            return random.choice([
+                "Eclipse-powered and fully operational! ✨",
+                "Doing great! Watching the cosmos 🌑",
+                "Feeling astronomical! How about you? 🌙",
+            ])
+        if any(w in msg for w in ["thanks", "thank you", "thx", "ty"]):
+            return random.choice([
+                "No problem! 🌑", "Anytime! ✨", "Happy to help! 😄"])
+        return random.choice([
+            "Interesting! 🤔 Ask me anything or try `/help`!",
+            "Hmm, tell me more! 🌑 I'm all ears.",
+            "That's cool! What else is on your mind? ✨",
+        ])
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if message.author.bot:
+            return
+
+        content = message.content.strip()
+        bot_mentioned = self.bot.user in message.mentions
+        name_used = "eclipse" in content.lower()
+
+        if not (bot_mentioned or name_used):
+            return
+
+        clean = re.sub(r"<@!?\d+>", "", content).strip()
+        clean = re.sub(r"\beclipse\b", "", clean, flags=re.IGNORECASE).strip()
+
+        if not clean:
+            if message.author.id == OWNER_ID:
+                await message.channel.send(
+                    f"Welcome back, my creator {message.author.mention}! 🌑👑")
+            else:
+                await message.channel.send(
+                    f"Hey {message.author.mention}! 🌑 What's up? Ask me anything!")
+            return
+
+        guild_id = message.guild.id if message.guild else 0
+        async with message.channel.typing():
+            reply = await self._ask_ai(guild_id, message.author.id, clean)
+
+        await message.channel.send(f"{message.author.mention} {reply}")
+
+    # === All your other commands stay exactly the same below ===
+
+    @app_commands.command(name="ask", description="Ask Eclipse anything — AI-powered.")
+    @app_commands.describe(question="Your question")
+    async def ask(self, interaction: discord.Interaction, question: str):
+        await interaction.response.defer()
+        guild_id = interaction.guild_id or 0
+        reply = await self._ask_ai(guild_id, interaction.user.id, question)
+        embed = discord.Embed(
+            description=reply, color=discord.Color.purple(),
+            timestamp=datetime.datetime.utcnow())
+        embed.set_author(
+            name=f"{interaction.user.display_name} asked:",
+            icon_url=interaction.user.display_avatar.url)
+        embed.set_footer(text="Eclipse AI 🌑")
+        await interaction.followup.send(embed=embed)
+
+    @app_commands.command(name="story", description="Ask Eclipse to tell you a story.")
+    @app_commands.describe(prompt="What kind of story? e.g. 'a space adventure'")
+    async def story(self, interaction: discord.Interaction, prompt: str):
+        await interaction.response.defer()
+        guild_id = interaction.guild_id or 0
+        reply = await self._ask_ai(
+            guild_id, interaction.user.id,
+            f"Tell me a short engaging story about: {prompt}")
+        embed = discord.Embed(
+            title="📖 Eclipse Story", description=reply,
+            color=discord.Color.purple(), timestamp=datetime.datetime.utcnow())
+        embed.set_footer(text=f"Story for {interaction.user.display_name} 🌑")
+        await interaction.followup.send(embed=embed)
+
+    @app_commands.command(name="clearchat",
+                          description="Clear your conversation history with Eclipse.")
+    async def clearchat(self, interaction: discord.Interaction):
+        guild_id = interaction.guild_id or 0
+        self.history[guild_id][interaction.user.id].clear()
+        await interaction.response.send_message(
+            "🧹 Cleared! Fresh start! 🌑", ephemeral=True)
+
+    MAGIC_8_BALL = [
+        "✅ It is certain.", "✅ Without a doubt.", "✅ Yes, definitely.",
+        "✅ Most likely.", "🤔 Reply hazy, try again.", "🤔 Ask again later.",
+        "🤔 Cannot predict now.", "❌ Don't count on it.", "❌ My reply is no.",
+        "❌ Very doubtful.", "❌ Outlook not so good.",
+    ]
+
+    JOKES = [
+        ("Why don't scientists trust atoms?", "Because they make up everything! 😄"),
+        ("What do you call fake spaghetti?", "An impasta! 🍝"),
+        ("Why did the robot go on vacation?", "To recharge its batteries! 🤖"),
+        ("Why don't programmers like nature?", "It has too many bugs! 🐛"),
+        ("What did the ocean say to the beach?", "Nothing, it just waved! 🌊"),
+        ("Why did the moon skip dinner?", "Because it was already full! 🌕"),
+        ("How do astronomers organize a party?", "They planet! 🪐"),
+    ]
+
+    FUN_FACTS = [
+        "🌑 A solar eclipse can only happen during a new moon.",
+        "⭐ The Sun is \~400× wider than the Moon but also \~400× farther away.",
+        "🌍 A total solar eclipse moves at \~1,700 km/h across Earth's surface.",
+        "🌙 The Moon drifts from Earth at about 3.8 cm per year.",
+        "🪐 Jupiter has 95 known moons!",
+        "🌌 The Milky Way has an estimated 100–400 billion stars.",
+        "💫 More stars exist in the universe than grains of sand on all Earth's beaches.",
+        "🚀 It would take over 9 years to drive to the Moon at highway speed.",
+    ]
 
     @app_commands.command(name="8ball", description="Ask the Magic 8-Ball a question.")
     @app_commands.describe(question="Your yes/no question")
@@ -191,7 +296,6 @@ async def _ask_ai(self, guild_id: int, user_id: int, user_message: str) -> str:
         msg = await interaction.original_response()
         for i in range(len(options)):
             try:
-        
                 await msg.add_reaction(emojis[i])
             except Exception:
                 pass
