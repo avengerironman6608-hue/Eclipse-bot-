@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Privacy Policy — Eclipse Bot</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #080b12;
+      --surface: #0e1420;
+      --border: #1c2540;
+      --accent: #7b8cff;
+      --accent2: #c084fc;
+      --text: #e2e8f7;
+      --muted: #6b7a99;
+      --glow: rgba(123, 140, 255, 0.15);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 300;
+      line-height: 1.8;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Starfield background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.4) 0%, transparent 100%),
+        radial-gradient(1px 1px at 80% 10%, rgba(255,255,255,0.3) 0%, transparent 100%),
+        radial-gradient(1px 1px at 50% 60%, rgba(255,255,255,0.25) 0%, transparent 100%),
+        radial-gradient(1px 1px at 10% 80%, rgba(255,255,255,0.2) 0%, transparent 100%),
+        radial-gradient(1px 1px at 90% 70%, rgba(255,255,255,0.3) 0%, transparent 100%),
+        radial-gradient(1px 1px at 35% 90%, rgba(255,255,255,0.2) 0%, transparent 100%),
+        radial-gradient(1px 1px at 65% 40%, rgba(255,255,255,0.15) 0%, transparent 100%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Top glow orb */
+    body::after {
+      content: '';
+      position: fixed;
+      top: -200px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(123,140,255,0.12) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .wrapper {
+      position: relative;
+      z-index: 1;
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 80px 32px 120px;
+    }
+
+    /* Header */
+    header {
+      text-align: center;
+      margin-bottom: 72px;
+      animation: fadeDown 0.8s ease both;
+    }
+
+    .moon {
+      font-size: 48px;
+      display: block;
+      margin-bottom: 16px;
+      filter: drop-shadow(0 0 20px rgba(123,140,255,0.6));
+      animation: pulse 4s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { filter: drop-shadow(0 0 20px rgba(123,140,255,0.6)); }
+      50% { filter: drop-shadow(0 0 35px rgba(192,132,252,0.8)); }
+    }
+
+    header h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #fff 0%, var(--accent) 50%, var(--accent2) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.1;
+      margin-bottom: 12px;
+    }
+
+    header .subtitle {
+      color: var(--muted);
+      font-size: 0.9rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .divider {
+      width: 60px;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      margin: 20px auto 0;
+      border-radius: 2px;
+    }
+
+    /* Sections */
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 36px;
+      margin-bottom: 20px;
+      position: relative;
+      overflow: hidden;
+      animation: fadeUp 0.6s ease both;
+    }
+
+    .section::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 3px; height: 100%;
+      background: linear-gradient(180deg, var(--accent), var(--accent2));
+      border-radius: 3px 0 0 3px;
+    }
+
+    .section:nth-child(2) { animation-delay: 0.05s; }
+    .section:nth-child(3) { animation-delay: 0.10s; }
+    .section:nth-child(4) { animation-delay: 0.15s; }
+    .section:nth-child(5) { animation-delay: 0.20s; }
+    .section:nth-child(6) { animation-delay: 0.25s; }
+    .section:nth-child(7) { animation-delay: 0.30s; }
+    .section:nth-child(8) { animation-delay: 0.35s; }
+
+    .section h2 {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .section p {
+      color: #a8b4d0;
+      font-size: 0.95rem;
+      margin-bottom: 10px;
+    }
+
+    .section p:last-child { margin-bottom: 0; }
+
+    .section ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    .section ul li {
+      color: #a8b4d0;
+      font-size: 0.95rem;
+      padding: 5px 0 5px 20px;
+      position: relative;
+    }
+
+    .section ul li::before {
+      content: '›';
+      position: absolute;
+      left: 0;
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .highlight {
+      display: inline-block;
+      background: rgba(123,140,255,0.12);
+      color: var(--accent);
+      border: 1px solid rgba(123,140,255,0.25);
+      border-radius: 6px;
+      padding: 2px 10px;
+      font-size: 0.85rem;
+      font-family: 'Syne', sans-serif;
+      font-weight: 600;
+    }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      margin-top: 56px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      animation: fadeUp 0.8s ease 0.4s both;
+    }
+
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    footer a:hover { text-decoration: underline; }
+
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-24px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <header>
+      <span class="moon">🌑</span>
+      <h1>Privacy Policy</h1>
+      <p class="subtitle">Eclipse Bot &nbsp;·&nbsp; Last updated: March 2026</p>
+      <div class="divider"></div>
+    </header>
+
+    <div class="section">
+      <h2>Overview</h2>
+      <p>Eclipse Bot ("the Bot") is a Discord bot designed to enhance your server experience with moderation, leveling, music, logging, and more. This Privacy Policy explains what data we collect, how we use it, and your rights regarding that data.</p>
+      <p>By adding Eclipse Bot to your Discord server or interacting with it, you agree to the terms described in this policy.</p>
+    </div>
+
+    <div class="section">
+      <h2>Data We Collect</h2>
+      <p>Eclipse Bot may collect and temporarily process the following data to function correctly:</p>
+      <ul>
+        <li>Discord User IDs (to track XP, levels, roles, and moderation actions)</li>
+        <li>Discord Server (Guild) IDs (to store server-specific settings)</li>
+        <li>Message content (only when required for automod or chat features)</li>
+        <li>Voice channel activity (for music and voice logging features)</li>
+        <li>Usernames and nicknames (for logging and onboarding displays)</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>How We Use Your Data</h2>
+      <p>All data collected is used solely to provide the Bot's features:</p>
+      <ul>
+        <li>Leveling system — tracking XP and rank per user per server</li>
+        <li>Moderation — recording bans, kicks, and warnings</li>
+        <li>Auto-moderation — detecting rule-breaking messages</li>
+        <li>Logging — posting server event logs to designated channels</li>
+        <li>Onboarding &amp; Welcome — greeting new members</li>
+        <li>Role management — assigning and removing roles automatically</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>Data Storage</h2>
+      <p>Eclipse Bot stores data in-memory during runtime. Persistent data (such as XP and moderation records) may be stored in a database accessible only to the bot owner.</p>
+      <p><span class="highlight">We do not sell, share, or transfer your data to any third party.</span></p>
+    </div>
+
+    <div class="section">
+      <h2>Data Retention</h2>
+      <p>Data is retained only as long as the Bot is present in your server. If you remove the Bot from your server, you may request deletion of all associated data by contacting the bot owner via Discord.</p>
+    </div>
+
+    <div class="section">
+      <h2>Children's Privacy</h2>
+      <p>Eclipse Bot does not knowingly collect data from users under the age of 13. If you believe a minor has provided data to the Bot, please contact us immediately so we can remove it.</p>
+    </div>
+
+    <div class="section">
+      <h2>Your Rights</h2>
+      <ul>
+        <li>Request a copy of the data stored about you</li>
+        <li>Request deletion of your data at any time</li>
+        <li>Opt out by removing the Bot from your server</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>Contact</h2>
+      <p>For any privacy-related concerns, data deletion requests, or questions, please contact the bot owner directly on Discord or via your server's support channel.</p>
+    </div>
+
+    <footer>
+      <p>© 2026 Eclipse Bot &nbsp;·&nbsp; <a href="terms-of-service.html">Terms of Service</a></p>
+      <p style="margin-top:8px;">This policy applies to all servers using Eclipse Bot.</p>
+    </footer>
+  </div>
+</body>
+</html>
