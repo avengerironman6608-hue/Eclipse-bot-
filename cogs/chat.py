@@ -88,6 +88,7 @@ async def _ask_ai(self, guild_id: int, user_id: int, user_message: str) -> str:
         messages = list(history)
 
         try:
+                
             async with aiohttp.ClientSession() as session:
                 payload = {
                     "model": "claude-haiku-4-5",      # Fast and recommended for chat
@@ -123,6 +124,7 @@ async def _ask_ai(self, guild_id: int, user_id: int, user_message: str) -> str:
         except Exception as e:
             print(f"[Chat] Request failed: {type(e).__name__}: {e}")
             try:
+                         
                 history.pop()
             except Exception:
                 pass
@@ -191,6 +193,7 @@ async def _ask_ai(self, guild_id: int, user_id: int, user_message: str) -> str:
         msg = await interaction.original_response()
         for i in range(len(options)):
             try:
+        
                 await msg.add_reaction(emojis[i])
             except Exception:
                 pass
