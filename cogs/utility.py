@@ -93,21 +93,8 @@ class Utility(commands.Cog):
             await interaction.response.send_message(
                 "❌ I don't have permission to send in that channel.", ephemeral=True)
 
-    @app_commands.command(name="snipe",
-                          description="See the last deleted message in this channel.")
-    async def snipe(self, interaction: discord.Interaction):
-        sniped = getattr(self.bot, '_sniped', {}).get(interaction.channel_id)
-        if not sniped:
-            await interaction.response.send_message("Nothing to snipe! 🎯", ephemeral=True)
-            return
-        embed = discord.Embed(
-            title="🎯 Sniped Message",
-            description=sniped["content"] or "(no text)",
-            color=discord.Color.purple(),
-            timestamp=sniped["time"]
-        )
-        embed.set_author(name=sniped["author"], icon_url=sniped["avatar"])
-        await interaction.response.send_message(embed=embed)
+    # Removed /snipe from here to prevent CommandAlreadyRegistered error
+    # (It's now only in the chat cog or you can move it here if you prefer)
 
     @commands.Cog.listener()
     async def on_message_delete(self, message: discord.Message):
