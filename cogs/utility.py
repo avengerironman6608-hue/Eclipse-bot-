@@ -18,6 +18,7 @@ class Utility(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.start_time = datetime.datetime.utcnow()
+        self.afk_users = {}  # ✅ AFK storage
 
     @app_commands.command(name="ping", description="Check the bot's latency.")
     async def ping(self, interaction: discord.Interaction):
@@ -93,8 +94,33 @@ class Utility(commands.Cog):
             await interaction.response.send_message(
                 "❌ I don't have permission to send in that channel.", ephemeral=True)
 
-    # Removed /snipe from here to prevent CommandAlreadyRegistered error
-    # (It's now only in the chat cog or you can move it here if you prefer)
+    # ================= AFK COMMAND =================
+    @app_commands.command(name="afk", description="Set your AFK status")
+    async def afk(self, interaction: discord.Interaction, reason: str = "AFK"):
+        self.afk_users[interaction.user.id] = {
+            "reason": reason,
+            "time": datetime.datetime.utcnow()
+        }
+        await interaction.response.send_message(f"💤 You are now AFK: {reason}")
+
+    # ================= MESSAGE LISTENER =================
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if message.author.bot:
+            return
+
+        # ✅ Remove AFK when user speaks
+        if message.author.id in self.afk_users:
+            del self.afk_users[message.author.id]
+            await message.channel.send(f"👋 Welcome back {message.author.mention}, AFK removed.")
+
+        # ✅ Check mentions
+        for user in message.mentions:
+            if user.id in self.afk_users:
+                data = self.afk_users[user.id]
+                await message.channel.send(
+                    f"💤 {user.name} is AFK: {data['reason']}"
+                )
 
     @commands.Cog.listener()
     async def on_message_delete(self, message: discord.Message):
@@ -116,5 +142,11 @@ class Utility(commands.Cog):
                     "❌ You don't have permission to use this command.", ephemeral=True)
 
 
+# ================= SETUP =================
 async def setup(bot):
-    await bot.add_cog(Utility(bot))
+    cog = Utility(bot)
+    await bot.add_cog(cog)
+
+    # ✅ FIX: Ensure commands are added to tree
+    for command in cog.walk_app_commands():
+        bot.tree.add_command(command)
