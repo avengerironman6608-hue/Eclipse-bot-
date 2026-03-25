@@ -6,7 +6,7 @@ import yt_dlp
 from collections import deque
 
 # ================= FFMPEG =================
-FFMPEG_PATH = "ffmpeg"  # 🔥 FIX
+FFMPEG_PATH = "/usr/bin/ffmpeg"  # 🔥 FIX
 
 FFMPEG_OPTIONS = {
     "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -nostdin",
@@ -24,6 +24,9 @@ YDL_OPTS = {
     # 🔥 FIX FOR YOUTUBE ERROR
     "nocheckcertificate": True,
     "ignoreerrors": False,
+
+    # 🔥 FIX FOR JS RUNTIME
+    "js_runtimes": ["node"],
 }
 
 # ================= SONG =================
@@ -146,7 +149,7 @@ class Music(commands.Cog):
             source = discord.PCMVolumeTransformer(
                 discord.FFmpegPCMAudio(
                     stream,
-                    executable=FFMPEG_PATH,  # 🔥 FIX
+                    executable=FFMPEG_PATH,  # 🔥 FIX USED HERE
                     **FFMPEG_OPTIONS
                 ),
                 volume=state.volume
