@@ -2,7 +2,7 @@
 [phases.setup]
 nixPkgs = [
   "python311",
-  "ffmpeg-full",   # ✅ FIXED (IMPORTANT)
+  "ffmpeg-full",   # ✅ FIXED
   "gcc",
   "libsodium",
   "opus",
