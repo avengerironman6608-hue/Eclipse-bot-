@@ -18,7 +18,7 @@ class Utility(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.start_time = datetime.datetime.utcnow()
-        self.afk_users = {}  # ✅ AFK storage
+        self.afk_users = {}  # user_id : {reason, time}
 
     @app_commands.command(name="ping", description="Check the bot's latency.")
     async def ping(self, interaction: discord.Interaction):
@@ -109,15 +109,25 @@ class Utility(commands.Cog):
         if message.author.bot:
             return
 
-        # ✅ Remove AFK when user speaks
+        now = datetime.datetime.utcnow()
+
+        # ✅ Remove AFK if user sends message
         if message.author.id in self.afk_users:
             del self.afk_users[message.author.id]
-            await message.channel.send(f"👋 Welcome back {message.author.mention}, AFK removed.")
+            await message.channel.send(
+                f"👋 Welcome back {message.author.mention}, AFK removed."
+            )
 
-        # ✅ Check mentions
+        # ✅ Check mentions + timeout auto remove
         for user in message.mentions:
             if user.id in self.afk_users:
                 data = self.afk_users[user.id]
+
+                # ⏱️ AUTO REMOVE AFTER 10 MIN
+                if (now - data["time"]).total_seconds() > 600:
+                    del self.afk_users[user.id]
+                    continue
+
                 await message.channel.send(
                     f"💤 {user.name} is AFK: {data['reason']}"
                 )
@@ -144,9 +154,4 @@ class Utility(commands.Cog):
 
 # ================= SETUP =================
 async def setup(bot):
-    cog = Utility(bot)
-    await bot.add_cog(cog)
-
-    # ✅ FIX: Ensure commands are added to tree
-    for command in cog.walk_app_commands():
-        bot.tree.add_command(command)
+    await bot.add_cog(Utility(bot))
