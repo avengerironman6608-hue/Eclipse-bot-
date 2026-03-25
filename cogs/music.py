@@ -6,15 +6,24 @@ import yt_dlp
 from collections import deque
 
 # ================= FFMPEG =================
+FFMPEG_PATH = "ffmpeg"  # 🔥 FIX
+
 FFMPEG_OPTIONS = {
     "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -nostdin",
     "options": "-vn -loglevel quiet"
 }
 
+# ================= YTDLP FIX =================
 YDL_OPTS = {
     "format": "bestaudio/best",
     "quiet": True,
-    "noplaylist": True
+    "noplaylist": True,
+    "default_search": "ytsearch",
+    "extract_flat": False,
+
+    # 🔥 FIX FOR YOUTUBE ERROR
+    "nocheckcertificate": True,
+    "ignoreerrors": False,
 }
 
 # ================= SONG =================
@@ -44,7 +53,7 @@ class PlayerControls(discord.ui.View):
     @discord.ui.button(label="⏯", style=discord.ButtonStyle.primary)
     async def pause_resume(self, interaction: discord.Interaction, button: discord.ui.Button):
         state = self.cog.get_state(self.gid)
-        if state.voice.is_playing():
+        if state.voice and state.voice.is_playing():
             state.voice.pause()
             await interaction.response.send_message("⏸ Paused", ephemeral=True)
         else:
@@ -81,26 +90,31 @@ class Music(commands.Cog):
 
         def run():
             with yt_dlp.YoutubeDL(YDL_OPTS) as ydl:
-                return ydl.extract_info(f"ytsearch:{query}", download=False)
+                return ydl.extract_info(query, download=False)
 
-        data = await loop.run_in_executor(None, run)
-        if not data or "entries" not in data:
+        try:
+            data = await loop.run_in_executor(None, run)
+
+            if "entries" in data:
+                data = data["entries"][0]
+
+            return Song(data, requester)
+
+        except Exception as e:
+            print("[FETCH ERROR]:", e)
             return None
-
-        return Song(data["entries"][0], requester)
 
     # ============== STREAM ==============
     async def get_stream(self, song):
+        loop = asyncio.get_event_loop()
+
+        def run():
+            with yt_dlp.YoutubeDL(YDL_OPTS) as ydl:
+                return ydl.extract_info(song.webpage_url, download=False)
+
         try:
-            loop = asyncio.get_event_loop()
-
-            def run():
-                with yt_dlp.YoutubeDL(YDL_OPTS) as ydl:
-                    return ydl.extract_info(song.webpage_url, download=False)
-
             data = await loop.run_in_executor(None, run)
             return data.get("url")
-
         except Exception as e:
             print("[STREAM ERROR]:", e)
             return None
@@ -121,6 +135,7 @@ class Music(commands.Cog):
         state.current = song
 
         stream = await self.get_stream(song)
+
         if not stream:
             if state.text:
                 await state.text.send(f"❌ Skipping: **{song.title}**")
@@ -129,13 +144,17 @@ class Music(commands.Cog):
 
         try:
             source = discord.PCMVolumeTransformer(
-                discord.FFmpegPCMAudio(stream, **FFMPEG_OPTIONS),
+                discord.FFmpegPCMAudio(
+                    stream,
+                    executable=FFMPEG_PATH,  # 🔥 FIX
+                    **FFMPEG_OPTIONS
+                ),
                 volume=state.volume
             )
         except Exception as e:
             print("[FFMPEG ERROR]:", e)
             if state.text:
-                await state.text.send("❌ FFmpeg error.")
+                await state.text.send("❌ FFmpeg not found or error.")
             return
 
         def after(e):
@@ -154,7 +173,7 @@ class Music(commands.Cog):
         if state.text:
             await state.text.send(embed=embed, view=view)
 
-    # ============== PLAY COMMAND ==============
+    # ============== PLAY ==============
     @app_commands.command(name="play", description="Play music")
     async def play(self, interaction: discord.Interaction, query: str):
 
@@ -171,6 +190,7 @@ class Music(commands.Cog):
             state.voice = await interaction.user.voice.channel.connect()
 
         song = await self.fetch(query, interaction.user)
+
         if not song:
             await interaction.followup.send("❌ Song not found")
             return
