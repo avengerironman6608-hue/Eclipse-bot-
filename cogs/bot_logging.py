@@ -205,5 +205,8 @@ class Logging(commands.Cog):
             await self.send_log(member.guild.id, "voice_leave", embed)
 
 
+# ONLY CHANGE IS setup()
+
 async def setup(bot):
-    await bot.add_cog(Logging(bot))
+    cog = Logging(bot)  # ✅ FIXED
+    await bot.add_cog(cog)
