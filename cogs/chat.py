@@ -26,7 +26,7 @@ async def get_session():
         session = aiohttp.ClientSession(timeout=timeout)
     return session
 
-# ================= FIXED AI =================
+# ================= AI =================
 async def ask_pollinations(guild_id: int, user_message: str) -> str:
     history = conversation_history.setdefault(guild_id, [])
     history.append({"role": "user", "content": user_message})
@@ -43,7 +43,7 @@ async def ask_pollinations(guild_id: int, user_message: str) -> str:
 
     session = await get_session()
 
-    for _ in range(3):  # 🔁 retry
+    for _ in range(3):
         try:
             async with session.post(
                 POLLINATIONS_URL,
@@ -74,14 +74,13 @@ async def ask_pollinations(guild_id: int, user_message: str) -> str:
             print(f"[Pollinations Error]: {e}")
             break
 
-    # 🔥 fallback instead of error
     return random.choice([
         "😅 Thinking slow... try again!",
         "🤖 Brain lag... ask again!",
         "⚡ Servers busy, retry!"
     ])
 
-# ================= FUN DATA =================
+# ================= FUN =================
 MAGIC_8_BALL = [
     "✅ It is certain.", "✅ Without a doubt.", "✅ Yes.",
     "🤔 Try again.", "❌ Don't count on it.", "❌ Very doubtful."
@@ -102,6 +101,9 @@ class Chat(commands.Cog):
     async def on_message(self, message):
         if message.author.bot:
             return
+
+        # 🔥 FIX: allow commands to still work
+        await self.bot.process_commands(message)
 
         if not (self.bot.user in message.mentions or "eclipse" in message.content.lower()):
             return
@@ -154,7 +156,7 @@ class Chat(commands.Cog):
     async def fact(self, interaction: discord.Interaction):
         await interaction.response.send_message("🌌 The universe is expanding every second!")
 
-    # ================= HELP (FULL RESTORED) =================
+    # ================= HELP =================
     @app_commands.command(name="help", description="View all commands")
     async def help_cmd(self, interaction: discord.Interaction):
 
