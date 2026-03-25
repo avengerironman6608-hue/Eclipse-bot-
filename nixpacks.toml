@@ -17,4 +17,4 @@ cmds = [
 
 # ================= START =================
 [start]
-cmd = "apt-get update && apt-get install -y ffmpeg && python bot.py"
+cmd = "apt-get update && apt-get install -y ffmpeg && which ffmpeg && python bot.py"
