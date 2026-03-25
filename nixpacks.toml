@@ -10,6 +10,7 @@ nixPkgs = [
 # ================= INSTALL =================
 [phases.install]
 cmds = [
+  "python -m ensurepip --upgrade",
   "python -m pip install --upgrade pip",
   "pip install -r requirements.txt"
 ]
