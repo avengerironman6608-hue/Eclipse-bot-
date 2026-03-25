@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 import os
 import asyncio
+import traceback
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -18,7 +19,6 @@ bot = commands.Bot(
     owner_id=OWNER_ID,
 )
 
-# Store owner ID on bot object so cogs can access it
 bot.owner_id_override = OWNER_ID
 
 COGS = [
@@ -31,50 +31,71 @@ COGS = [
     "cogs.utility",
     "cogs.welcome",
     "cogs.roles",
-    "cogs.bot_logging",  # Renamed from cogs.logging to avoid shadowing Python's built-in logging module
+    "cogs.bot_logging",
 ]
 
+# ================= LOAD COGS =================
+async def load_cogs():
+    for cog in COGS:
+        try:
+            await bot.load_extension(cog)
+            print(f"✅ Loaded {cog}")
+        except Exception:
+            print(f"❌ Failed to load {cog}")
+            traceback.print_exc()
 
+# ================= READY =================
 @bot.event
 async def on_ready():
-    print(f"🌑 Eclipse Bot is online as {bot.user} (ID: {bot.user.id})")
+    print(f"\n🌑 Logged in as {bot.user} (ID: {bot.user.id})")
+
     await bot.change_presence(
         activity=discord.Activity(
             type=discord.ActivityType.watching,
             name="the Eclipse 🌑 | /help"
         )
     )
+
     try:
+        # 🔥 FORCE CLEAN SYNC (FIXES MISSING COMMANDS)
+        bot.tree.clear_commands(guild=None)
         synced = await bot.tree.sync()
-        print(f"✅ Synced {len(synced)} slash commands.")
+
+        print(f"✅ FULL GLOBAL SYNC: {len(synced)} commands")
+
     except Exception as e:
-        print(f"❌ Failed to sync commands: {e}")
+        print("❌ Sync error:")
+        traceback.print_exc()
 
-
+# ================= ERROR HANDLER =================
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound):
         return
-    print(f"Command error: {error}")
+    print(f"⚠ Command error: {error}")
 
+# ================= MANUAL SYNC COMMAND =================
+@bot.command()
+@commands.is_owner()
+async def sync(ctx):
+    try:
+        bot.tree.clear_commands(guild=None)
+        synced = await bot.tree.sync()
+        await ctx.send(f"✅ Synced {len(synced)} commands")
+    except Exception:
+        await ctx.send("❌ Sync failed")
+        traceback.print_exc()
 
-async def load_cogs():
-    for cog in COGS:
-        try:
-            await bot.load_extension(cog)
-            print(f"  ✅ Loaded {cog}")
-        except Exception as e:
-            print(f"  ❌ Failed to load {cog}: {e}")
-
-
+# ================= MAIN =================
 async def main():
     async with bot:
-        await load_cogs()
+        await load_cogs()  # 🔥 LOAD BEFORE START
         token = os.getenv("DISCORD_TOKEN")
-        if not token:
-            raise ValueError("❌ DISCORD_TOKEN not set in environment variables!")
-        await bot.start(token)
 
+        if not token:
+            raise ValueError("❌ DISCORD_TOKEN not set!")
+
+        await bot.start(token)
 
 if __name__ == "__main__":
     asyncio.run(main())
