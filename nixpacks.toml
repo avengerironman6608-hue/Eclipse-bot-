@@ -1,8 +1,7 @@
 # ================= SETUP =================
 [phases.setup]
 nixPkgs = [
-  "python311",
-  "ffmpeg-full",
+  "ffmpeg",
   "gcc",
   "libsodium"
 ]
@@ -10,11 +9,12 @@ nixPkgs = [
 # ================= INSTALL =================
 [phases.install]
 cmds = [
-  "python -m ensurepip --upgrade",
-  "python -m pip install --upgrade pip",
-  "pip install -r requirements.txt"
+  "apt-get update",
+  "apt-get install -y python3 python3-pip ffmpeg",
+  "pip3 install --upgrade pip",
+  "pip3 install -r requirements.txt"
 ]
 
 # ================= START =================
 [start]
-cmd = "apt-get update && apt-get install -y ffmpeg && which ffmpeg && python bot.py"
+cmd = "python3 bot.py"
