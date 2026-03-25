@@ -87,8 +87,8 @@ class Music(commands.Cog):
     async def fetch(self, query, requester):
         loop = asyncio.get_event_loop()
 
-        def run():
-    with yt_dlp.YoutubeDL(YDL_OPTS) as ydl:
+    def run():
+        with yt_dlp.YoutubeDL(YDL_OPTS) as ydl:
         return ydl.extract_info(f"ytsearch1:{query}", download=False)
 
         try:
