@@ -1,11 +1,22 @@
+# ================= SETUP =================
 [phases.setup]
-nixPkgs = ["python311", "ffmpeg", "libsodium", "gcc"]
+nixPkgs = [
+  "python311",
+  "ffmpeg",        # 🎵 music playback
+  "gcc",           # 🔧 build dependencies
+  "libsodium",     # 🔐 discord voice encryption
+  "opus",          # 🔊 voice codec (VERY IMPORTANT)
+  "nodejs",        # ⚠️ fixes yt-dlp JS runtime warning
+  "git"
+]
 
+# ================= INSTALL =================
 [phases.install]
 cmds = [
-  "pip install --upgrade pip",
+  "python -m pip install --upgrade pip",
   "pip install -r requirements.txt"
 ]
 
+# ================= START =================
 [start]
 cmd = "python bot.py"
