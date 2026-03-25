@@ -51,6 +51,10 @@ async def load_cogs():
 async def on_ready():
     print(f"\n🌑 Logged in as {bot.user} (ID: {bot.user.id})")
 
+    # ✅ ADDED DEBUG LINE (ONLY CHANGE)
+    import shutil
+    print("FFmpeg Path:", shutil.which("ffmpeg"))
+
     await bot.change_presence(
         activity=discord.Activity(
             type=discord.ActivityType.watching,
