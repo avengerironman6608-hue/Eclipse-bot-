@@ -19,7 +19,7 @@ YDL_OPTS = {
     "quiet": True,
     "noplaylist": True,
     "default_search": "ytsearch1",  # 🔥 FIXED
-    "extract_flat": False,
+    "extract_flat": "in_playlist",
     "nocheckcertificate": True,
     "ignoreerrors": False,
     "source_address": "0.0.0.0",  # 🔥 FIX
@@ -88,8 +88,8 @@ class Music(commands.Cog):
         loop = asyncio.get_event_loop()
 
         def run():
-            with yt_dlp.YoutubeDL(YDL_OPTS) as ydl:
-                return ydl.extract_info(query, download=False)
+    with yt_dlp.YoutubeDL(YDL_OPTS) as ydl:
+        return ydl.extract_info(f"ytsearch1:{query}", download=False)
 
         try:
             data = await loop.run_in_executor(None, run)
