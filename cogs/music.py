@@ -6,7 +6,7 @@ import yt_dlp
 from collections import deque
 
 # ================= FFMPEG =================
-FFMPEG_PATH = "/usr/bin/ffmpeg"  # 🔥 FIX
+FFMPEG_PATH = "/usr/bin/ffmpeg"
 
 FFMPEG_OPTIONS = {
     "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -nostdin",
@@ -18,15 +18,11 @@ YDL_OPTS = {
     "format": "bestaudio/best",
     "quiet": True,
     "noplaylist": True,
-    "default_search": "ytsearch",
+    "default_search": "ytsearch1",  # 🔥 FIXED
     "extract_flat": False,
-
-    # 🔥 FIX FOR YOUTUBE ERROR
     "nocheckcertificate": True,
     "ignoreerrors": False,
-
-    # 🔥 FIX FOR JS RUNTIME
-    "js_runtimes": ["node"],
+    "source_address": "0.0.0.0",  # 🔥 FIX
 }
 
 # ================= SONG =================
@@ -98,13 +94,21 @@ class Music(commands.Cog):
         try:
             data = await loop.run_in_executor(None, run)
 
+            if not data:
+                return None
+
             if "entries" in data:
+                if not data["entries"]:
+                    return None
                 data = data["entries"][0]
+
+            if not data:
+                return None
 
             return Song(data, requester)
 
         except Exception as e:
-            print("[FETCH ERROR]:", e)
+            print("[FETCH ERROR]:", str(e))  # 🔥 DEBUG
             return None
 
     # ============== STREAM ==============
@@ -113,13 +117,19 @@ class Music(commands.Cog):
 
         def run():
             with yt_dlp.YoutubeDL(YDL_OPTS) as ydl:
-                return ydl.extract_info(song.webpage_url, download=False)
+                data = ydl.extract_info(song.webpage_url, download=False)
+                return data
 
         try:
             data = await loop.run_in_executor(None, run)
-            return data.get("url")
+
+            if not data:
+                return None
+
+            return data.get("url") or data.get("formats")[0].get("url")
+
         except Exception as e:
-            print("[STREAM ERROR]:", e)
+            print("[STREAM ERROR]:", str(e))  # 🔥 DEBUG
             return None
 
     # ============== PLAY NEXT ==============
@@ -149,7 +159,7 @@ class Music(commands.Cog):
             source = discord.PCMVolumeTransformer(
                 discord.FFmpegPCMAudio(
                     stream,
-                    executable=FFMPEG_PATH,  # 🔥 FIX USED HERE
+                    executable=FFMPEG_PATH,
                     **FFMPEG_OPTIONS
                 ),
                 volume=state.volume
@@ -157,7 +167,7 @@ class Music(commands.Cog):
         except Exception as e:
             print("[FFMPEG ERROR]:", e)
             if state.text:
-                await state.text.send("❌ FFmpeg not found or error.")
+                await state.text.send("❌ FFmpeg error.")
             return
 
         def after(e):
