@@ -1,12 +1,6 @@
-# ================= SETUP =================
 [phases.setup]
-nixPkgs = [
-  "ffmpeg",
-  "gcc",
-  "libsodium"
-]
+nixPkgs = ["ffmpeg", "gcc", "libsodium"]
 
-# ================= INSTALL =================
 [phases.install]
 cmds = [
   "apt-get update",
@@ -15,6 +9,5 @@ cmds = [
   "pip3 install -r requirements.txt"
 ]
 
-# ================= START =================
 [start]
 cmd = "python3 bot.py"
