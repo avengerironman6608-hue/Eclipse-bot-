@@ -19,8 +19,10 @@ bot = commands.Bot(
     owner_id=OWNER_ID,
 )
 
+# Make owner ID accessible in cogs
 bot.owner_id_override = OWNER_ID
 
+# ================= COGS =================
 COGS = [
     "cogs.moderation",
     "cogs.automod",
@@ -57,13 +59,13 @@ async def on_ready():
     )
 
     try:
-        # 🔥 FORCE CLEAN SYNC (FIXES MISSING COMMANDS)
-        bot.tree.clear_commands(guild=None)
         synced = await bot.tree.sync()
+        print(f"✅ Synced {len(synced)} slash commands")
 
-        print(f"✅ FULL GLOBAL SYNC: {len(synced)} commands")
+        # Debug: show how many commands actually exist
+        print(f"📊 Commands currently in tree: {len(bot.tree.get_commands())}")
 
-    except Exception as e:
+    except Exception:
         print("❌ Sync error:")
         traceback.print_exc()
 
@@ -74,12 +76,11 @@ async def on_command_error(ctx, error):
         return
     print(f"⚠ Command error: {error}")
 
-# ================= MANUAL SYNC COMMAND =================
+# ================= OWNER SYNC COMMAND =================
 @bot.command()
 @commands.is_owner()
 async def sync(ctx):
     try:
-        bot.tree.clear_commands(guild=None)
         synced = await bot.tree.sync()
         await ctx.send(f"✅ Synced {len(synced)} commands")
     except Exception:
@@ -89,11 +90,11 @@ async def sync(ctx):
 # ================= MAIN =================
 async def main():
     async with bot:
-        await load_cogs()  # 🔥 LOAD BEFORE START
-        token = os.getenv("DISCORD_TOKEN")
+        await load_cogs()  # ✅ Load BEFORE start
 
+        token = os.getenv("DISCORD_TOKEN")
         if not token:
-            raise ValueError("❌ DISCORD_TOKEN not set!")
+            raise ValueError("❌ DISCORD_TOKEN not set in environment variables!")
 
         await bot.start(token)
 
