@@ -2,11 +2,11 @@
 [phases.setup]
 nixPkgs = [
   "python311",
-  "ffmpeg",        # 🎵 music playback
-  "gcc",           # 🔧 build dependencies
-  "libsodium",     # 🔐 discord voice encryption
-  "opus",          # 🔊 voice codec (VERY IMPORTANT)
-  "nodejs",        # ⚠️ fixes yt-dlp JS runtime warning
+  "ffmpeg-full",   # ✅ FIXED (IMPORTANT)
+  "gcc",
+  "libsodium",
+  "opus",
+  "nodejs",
   "git"
 ]
 
