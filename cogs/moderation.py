@@ -1,211 +1,286 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-import re, datetime, time, os
-from collections import defaultdict, deque
+import datetime
+import asyncio
 
-OWNER_ID = int(os.getenv("OWNER_ID", "1247446254938624121"))
-DEFAULT_BANNED_WORDS = ["nigger","nigga","faggot","retard","kike","spic","chink","cunt","fuck","shit","bitch","asshole","bastard"]
-INVITE_REGEX = re.compile(r"(discord\.gg|discord\.com/invite|discordapp\.com/invite)/\S+", re.IGNORECASE)
-LINK_REGEX   = re.compile(r"https?://\S+", re.IGNORECASE)
 
-class AutoMod(commands.Cog):
+class Moderation(commands.Cog):
+    """🔨 Full moderation suite."""
+
     def __init__(self, bot):
         self.bot = bot
-        self.settings = {}
-        self.spam_tracker = defaultdict(lambda: defaultdict(lambda: deque(maxlen=10)))
-        self.raid_tracker = defaultdict(lambda: deque(maxlen=20))
+        self.warnings = {}   # guild_id -> {user_id: [warn dicts]}
+        self.notes    = {}   # guild_id -> {user_id: [note strings]}
 
-    def get_settings(self, gid):
-        return self.settings.setdefault(gid, {
-            "enabled": True, "filter_words": True, "banned_words": list(DEFAULT_BANNED_WORDS),
-            "filter_invites": True, "filter_links": False, "allowed_link_roles": [],
-            "anti_spam": True, "spam_threshold": 5, "spam_window": 5,
-            "anti_caps": True, "caps_threshold": 70, "caps_min_length": 10,
-            "anti_mass_mention": True, "mention_threshold": 5,
-            "anti_raid": True, "raid_threshold": 10, "raid_window": 10,
-            "log_channel": None, "whitelist_roles": [], "whitelist_channels": [],
-        })
+    # ── Helpers ───────────────────────────────────────────────────────────────
+    def _warns(self, gid, uid):
+        return self.warnings.setdefault(gid, {}).setdefault(uid, [])
 
-    async def log_action(self, guild, action, user, reason, message=None):
-        ch_id = self.get_settings(guild.id).get("log_channel")
-        if not ch_id: return
-        ch = guild.get_channel(ch_id)
-        if not ch: return
-        e = discord.Embed(title=f"🛡️ AutoMod — {action}", color=discord.Color.red(), timestamp=datetime.datetime.utcnow())
-        e.add_field(name="User",    value=f"{user.mention} (`{user.id}`)", inline=True)
-        e.add_field(name="Channel", value=message.channel.mention if message else "N/A", inline=True)
-        e.add_field(name="Reason",  value=reason, inline=False)
-        if message and message.content:
-            e.add_field(name="Message", value=f"```{message.content[:400]}```", inline=False)
-        try: await ch.send(embed=e)
-        except discord.Forbidden: pass
+    def _add_warn(self, gid, uid, reason, mod):
+        self._warns(gid, uid).append({"reason": reason, "mod": str(mod),
+                                       "time": datetime.datetime.utcnow().isoformat()})
+        return len(self._warns(gid, uid))
 
-    @commands.Cog.listener()
-    async def on_message(self, message: discord.Message):
-        if not message.guild or message.author.bot: return
-        if message.author.id == OWNER_ID: return
-        s = self.get_settings(message.guild.id)
-        if not s["enabled"]: return
-        member = message.author
-        rids = [r.id for r in member.roles]
-        if any(r in rids for r in s["whitelist_roles"]): return
-        if message.channel.id in s["whitelist_channels"]: return
-        if member.guild_permissions.manage_messages: return
+    def _embed(self, action, target, mod, reason, color=discord.Color.red()):
+        e = discord.Embed(title=f"🔨 {action}", color=color,
+                          timestamp=datetime.datetime.utcnow())
+        e.add_field(name="User",      value=f"{target.mention} (`{target.id}`)", inline=True)
+        e.add_field(name="Moderator", value=mod.mention, inline=True)
+        e.add_field(name="Reason",    value=reason or "No reason provided", inline=False)
+        e.set_footer(text="Eclipse Moderation")
+        return e
 
-        # Anti-spam
-        if s["anti_spam"]:
-            now = time.time()
-            dq = self.spam_tracker[message.guild.id][member.id]
-            dq.append(now)
-            if len([t for t in dq if now - t <= s["spam_window"]]) >= s["spam_threshold"]:
-                await message.delete()
-                try: await member.timeout(discord.utils.utcnow() + datetime.timedelta(minutes=5), reason="AutoMod: Spam")
-                except discord.Forbidden: pass
-                await self.log_action(message.guild, "Spam Timeout", member, "Spam detected", message)
-                return
+    async def _try_dm(self, member, msg):
+        try: await member.send(msg)
+        except Exception: pass
 
-        # Anti-caps
-        if s["anti_caps"] and len(message.content) >= s["caps_min_length"]:
-            letters = [c for c in message.content if c.isalpha()]
-            if letters and sum(1 for c in letters if c.isupper()) / len(letters) * 100 >= s["caps_threshold"]:
-                await message.delete()
-                try: await message.channel.send(f"{member.mention} ⚠️ Avoid excessive CAPS.", delete_after=5)
-                except Exception: pass
-                await self.log_action(message.guild, "Caps Filter", member, "Excessive caps", message)
-                return
+    # ── Ban ───────────────────────────────────────────────────────────────────
+    @app_commands.command(name="ban", description="Ban a member.")
+    @app_commands.describe(member="Member to ban", reason="Reason", delete_days="Days of messages to delete (0-7)")
+    @app_commands.checks.has_permissions(ban_members=True)
+    async def ban(self, interaction: discord.Interaction, member: discord.Member,
+                  reason: str = None, delete_days: int = 0):
+        await self._try_dm(member, f"🔨 You were **banned** from **{interaction.guild.name}**. Reason: {reason or 'None'}")
+        await member.ban(reason=reason, delete_message_days=min(delete_days, 7))
+        await interaction.response.send_message(embed=self._embed("Member Banned", member, interaction.user, reason))
 
-        # Anti-mass-mention
-        if s["anti_mass_mention"] and (len(message.mentions) + len(message.role_mentions)) >= s["mention_threshold"]:
-            await message.delete()
-            try: await member.timeout(discord.utils.utcnow() + datetime.timedelta(minutes=10), reason="AutoMod: Mass mention")
-            except discord.Forbidden: pass
-            await self.log_action(message.guild, "Mass Mention", member, "Too many mentions", message)
-            return
+    @app_commands.command(name="unban", description="Unban a user by ID.")
+    @app_commands.describe(user_id="User ID to unban", reason="Reason")
+    @app_commands.checks.has_permissions(ban_members=True)
+    async def unban(self, interaction: discord.Interaction, user_id: str, reason: str = None):
+        try:
+            user = await self.bot.fetch_user(int(user_id))
+            await interaction.guild.unban(user, reason=reason)
+            e = discord.Embed(title="✅ User Unbanned", description=f"{user.mention} has been unbanned.", color=discord.Color.green())
+            await interaction.response.send_message(embed=e)
+        except discord.NotFound:
+            await interaction.response.send_message("❌ User not found or not banned.", ephemeral=True)
 
-        # Invite filter
-        if s["filter_invites"] and INVITE_REGEX.search(message.content):
-            await message.delete()
-            try: await message.channel.send(f"{member.mention} ⚠️ Invites not allowed here.", delete_after=5)
-            except Exception: pass
-            await self.log_action(message.guild, "Invite Blocked", member, "Posted invite", message)
-            return
+    @app_commands.command(name="softban", description="Ban then immediately unban (clears messages).")
+    @app_commands.checks.has_permissions(ban_members=True)
+    async def softban(self, interaction: discord.Interaction, member: discord.Member, reason: str = None):
+        await self._try_dm(member, f"👢 You were **softbanned** from **{interaction.guild.name}**. Reason: {reason or 'None'}")
+        await member.ban(reason=f"Softban: {reason}", delete_message_days=7)
+        await interaction.guild.unban(member, reason="Softban unban")
+        await interaction.response.send_message(embed=self._embed("Member Softbanned", member, interaction.user, reason, discord.Color.orange()))
 
-        # Link filter
-        if s["filter_links"] and LINK_REGEX.search(message.content):
-            if not any(r in rids for r in s["allowed_link_roles"]):
-                await message.delete()
-                try: await message.channel.send(f"{member.mention} ⚠️ Links not allowed here.", delete_after=5)
-                except Exception: pass
-                await self.log_action(message.guild, "Link Blocked", member, "Posted link", message)
-                return
+    @app_commands.command(name="hackban", description="Ban a user by ID (even if not in server).")
+    @app_commands.describe(user_id="Discord user ID", reason="Reason")
+    @app_commands.checks.has_permissions(ban_members=True)
+    async def hackban(self, interaction: discord.Interaction, user_id: str, reason: str = None):
+        try:
+            user = await self.bot.fetch_user(int(user_id))
+            await interaction.guild.ban(user, reason=reason)
+            e = discord.Embed(title="🔨 User Hackbanned", description=f"`{user}` (`{user.id}`) banned.", color=discord.Color.red())
+            await interaction.response.send_message(embed=e)
+        except Exception as err:
+            await interaction.response.send_message(f"❌ Failed: `{err}`", ephemeral=True)
 
-        # Banned words
-        if s["filter_words"]:
-            cl = message.content.lower()
-            for w in s["banned_words"]:
-                if re.search(rf"\b{re.escape(w)}\b", cl):
-                    await message.delete()
-                    try: await message.channel.send(f"{member.mention} ⚠️ Banned word detected.", delete_after=5)
-                    except Exception: pass
-                    await self.log_action(message.guild, "Banned Word", member, "Used banned word", message)
-                    return
+    # ── Kick ──────────────────────────────────────────────────────────────────
+    @app_commands.command(name="kick", description="Kick a member.")
+    @app_commands.checks.has_permissions(kick_members=True)
+    async def kick(self, interaction: discord.Interaction, member: discord.Member, reason: str = None):
+        await self._try_dm(member, f"👢 You were **kicked** from **{interaction.guild.name}**. Reason: {reason or 'None'}")
+        await member.kick(reason=reason)
+        await interaction.response.send_message(embed=self._embed("Member Kicked", member, interaction.user, reason, discord.Color.orange()))
 
-    @commands.Cog.listener()
-    async def on_member_join(self, member: discord.Member):
-        s = self.get_settings(member.guild.id)
-        if not s["anti_raid"]: return
-        now = time.time()
-        dq  = self.raid_tracker[member.guild.id]
-        dq.append(now)
-        if len([t for t in dq if now - t <= s["raid_window"]]) >= s["raid_threshold"]:
-            try:
-                await member.guild.edit(verification_level=discord.VerificationLevel.high)
-                ch_id = s.get("log_channel")
-                if ch_id:
-                    ch = member.guild.get_channel(ch_id)
-                    if ch:
-                        await ch.send(embed=discord.Embed(
-                            title="🚨 RAID DETECTED",
-                            description="Too many joins detected. Verification raised to HIGH.",
-                            color=discord.Color.red(), timestamp=datetime.datetime.utcnow()))
-            except discord.Forbidden: pass
+    # ── Timeout ───────────────────────────────────────────────────────────────
+    @app_commands.command(name="timeout", description="Timeout a member.")
+    @app_commands.describe(member="Member", minutes="Duration in minutes", reason="Reason")
+    @app_commands.checks.has_permissions(moderate_members=True)
+    async def timeout(self, interaction: discord.Interaction, member: discord.Member,
+                      minutes: int = 10, reason: str = None):
+        until = discord.utils.utcnow() + datetime.timedelta(minutes=minutes)
+        await member.timeout(until, reason=reason)
+        await interaction.response.send_message(
+            embed=self._embed(f"Timed Out ({minutes}m)", member, interaction.user, reason, discord.Color.yellow()))
 
-    @app_commands.command(name="automod", description="View AutoMod settings.")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def automod_status(self, interaction: discord.Interaction):
-        s = self.get_settings(interaction.guild_id)
-        e = discord.Embed(title="🛡️ AutoMod Settings", color=discord.Color.purple())
-        for k, label in [("enabled","Enabled"),("filter_words","Word Filter"),("anti_spam","Anti-Spam"),
-                          ("anti_caps","Anti-Caps"),("anti_raid","Anti-Raid"),
-                          ("filter_invites","Invite Filter"),("filter_links","Link Filter"),
-                          ("anti_mass_mention","Mass Mention")]:
-            e.add_field(name=label, value="✅" if s[k] else "❌", inline=True)
-        e.add_field(name="Spam Threshold", value=f"{s['spam_threshold']} msgs/{s['spam_window']}s", inline=True)
-        e.set_footer(text="Use /automod_set to configure")
+    @app_commands.command(name="untimeout", description="Remove a member's timeout.")
+    @app_commands.checks.has_permissions(moderate_members=True)
+    async def untimeout(self, interaction: discord.Interaction, member: discord.Member):
+        await member.timeout(None)
+        await interaction.response.send_message(f"✅ Timeout removed for {member.mention}.")
+
+    # ── Warn ──────────────────────────────────────────────────────────────────
+    @app_commands.command(name="warn", description="Warn a member.")
+    @app_commands.checks.has_permissions(moderate_members=True)
+    async def warn(self, interaction: discord.Interaction, member: discord.Member, reason: str):
+        count = self._add_warn(interaction.guild_id, member.id, reason, interaction.user)
+        await self._try_dm(member, f"⚠️ You received a warning in **{interaction.guild.name}**.\nReason: {reason}\nTotal warnings: {count}")
+        await interaction.response.send_message(
+            embed=self._embed(f"Member Warned (#{count})", member, interaction.user, reason, discord.Color.yellow()))
+        if count >= 5:
+            await member.ban(reason="Auto-ban: 5 warnings")
+            await interaction.followup.send(f"🔨 {member.mention} auto-banned for reaching 5 warnings.")
+        elif count >= 3:
+            until = discord.utils.utcnow() + datetime.timedelta(hours=1)
+            await member.timeout(until, reason="Auto-timeout: 3 warnings")
+            await interaction.followup.send(f"⏳ {member.mention} auto-timed out for 1h (3 warnings).")
+
+    @app_commands.command(name="warnings", description="View a member's warnings.")
+    async def warnings_cmd(self, interaction: discord.Interaction, member: discord.Member):
+        warns = self._warns(interaction.guild_id, member.id)
+        if not warns:
+            return await interaction.response.send_message(f"✅ {member.mention} has no warnings.", ephemeral=True)
+        e = discord.Embed(title=f"⚠️ Warnings for {member}", color=discord.Color.orange())
+        for i, w in enumerate(warns, 1):
+            e.add_field(name=f"#{i} — {w['time'][:10]}", value=f"**Reason:** {w['reason']}\n**By:** {w['mod']}", inline=False)
         await interaction.response.send_message(embed=e)
 
-    @app_commands.command(name="automod_set", description="Toggle an AutoMod feature.")
-    @app_commands.describe(setting="Feature to toggle", value="true or false")
-    @app_commands.choices(setting=[
-        app_commands.Choice(name="enabled",           value="enabled"),
-        app_commands.Choice(name="filter_words",      value="filter_words"),
-        app_commands.Choice(name="filter_invites",    value="filter_invites"),
-        app_commands.Choice(name="filter_links",      value="filter_links"),
-        app_commands.Choice(name="anti_spam",         value="anti_spam"),
-        app_commands.Choice(name="anti_caps",         value="anti_caps"),
-        app_commands.Choice(name="anti_mass_mention", value="anti_mass_mention"),
-        app_commands.Choice(name="anti_raid",         value="anti_raid"),
-    ])
+    @app_commands.command(name="clearwarnings", description="Clear all warnings for a member.")
     @app_commands.checks.has_permissions(administrator=True)
-    async def automod_set(self, interaction: discord.Interaction, setting: str, value: str):
-        self.get_settings(interaction.guild_id)[setting] = value.lower() in ("true","1","yes","on")
-        await interaction.response.send_message(f"✅ `{setting}` = `{value}`.")
+    async def clearwarnings(self, interaction: discord.Interaction, member: discord.Member):
+        self.warnings.get(interaction.guild_id, {}).pop(member.id, None)
+        await interaction.response.send_message(f"✅ Cleared warnings for {member.mention}.")
 
-    @app_commands.command(name="automod_logchannel", description="Set the AutoMod log channel.")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def automod_log(self, interaction: discord.Interaction, channel: discord.TextChannel):
-        self.get_settings(interaction.guild_id)["log_channel"] = channel.id
-        await interaction.response.send_message(f"✅ AutoMod logs → {channel.mention}.")
+    # ── Purge ─────────────────────────────────────────────────────────────────
+    @app_commands.command(name="purge", description="Bulk delete messages.")
+    @app_commands.describe(amount="Number of messages (1–200)", member="Only delete from this member")
+    @app_commands.checks.has_permissions(manage_messages=True)
+    async def purge(self, interaction: discord.Interaction, amount: int, member: discord.Member = None):
+        await interaction.response.defer(ephemeral=True)
+        amount = min(amount, 200)
+        check = (lambda m: m.author == member) if member else None
+        deleted = await interaction.channel.purge(limit=amount, check=check)
+        await interaction.followup.send(f"🗑️ Deleted **{len(deleted)}** messages.", ephemeral=True)
 
-    @app_commands.command(name="addword", description="Add a banned word.")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def addword(self, interaction: discord.Interaction, word: str):
-        s = self.get_settings(interaction.guild_id)
-        if word.lower() not in s["banned_words"]: s["banned_words"].append(word.lower())
-        await interaction.response.send_message(f"✅ Added `{word}` to banned words.", ephemeral=True)
+    # ── Lock/Unlock ───────────────────────────────────────────────────────────
+    @app_commands.command(name="lock", description="Lock the current channel.")
+    @app_commands.checks.has_permissions(manage_channels=True)
+    async def lock(self, interaction: discord.Interaction, channel: discord.TextChannel = None):
+        ch = channel or interaction.channel
+        ow = ch.overwrites_for(interaction.guild.default_role)
+        ow.send_messages = False
+        await ch.set_permissions(interaction.guild.default_role, overwrite=ow)
+        await interaction.response.send_message(f"🔒 {ch.mention} **locked**.")
 
-    @app_commands.command(name="removeword", description="Remove a banned word.")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def removeword(self, interaction: discord.Interaction, word: str):
-        s = self.get_settings(interaction.guild_id)
-        if word.lower() in s["banned_words"]:
-            s["banned_words"].remove(word.lower())
-            await interaction.response.send_message(f"✅ Removed `{word}`.", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"❌ Not in list.", ephemeral=True)
+    @app_commands.command(name="unlock", description="Unlock the current channel.")
+    @app_commands.checks.has_permissions(manage_channels=True)
+    async def unlock(self, interaction: discord.Interaction, channel: discord.TextChannel = None):
+        ch = channel or interaction.channel
+        ow = ch.overwrites_for(interaction.guild.default_role)
+        ow.send_messages = True
+        await ch.set_permissions(interaction.guild.default_role, overwrite=ow)
+        await interaction.response.send_message(f"🔓 {ch.mention} **unlocked**.")
 
-    @app_commands.command(name="badwords", description="Show the banned words list.")
+    @app_commands.command(name="slowmode", description="Set channel slowmode.")
+    @app_commands.describe(seconds="Slowmode delay in seconds (0 = off)")
+    @app_commands.checks.has_permissions(manage_channels=True)
+    async def slowmode(self, interaction: discord.Interaction, seconds: int = 0):
+        await interaction.channel.edit(slowmode_delay=seconds)
+        msg = f"⏱️ Slowmode set to **{seconds}s**." if seconds else "⏱️ Slowmode **disabled**."
+        await interaction.response.send_message(msg)
+
+    @app_commands.command(name="lockdown", description="Lock ALL channels in the server.")
     @app_commands.checks.has_permissions(administrator=True)
-    async def badwords(self, interaction: discord.Interaction):
-        words = self.get_settings(interaction.guild_id)["banned_words"]
-        e = discord.Embed(title="🚫 Banned Words", color=discord.Color.red())
-        e.description = ", ".join(f"||{w}||" for w in words) or "None"
+    async def lockdown(self, interaction: discord.Interaction, reason: str = "Lockdown"):
+        await interaction.response.defer()
+        count = 0
+        for ch in interaction.guild.text_channels:
+            try:
+                ow = ch.overwrites_for(interaction.guild.default_role)
+                ow.send_messages = False
+                await ch.set_permissions(interaction.guild.default_role, overwrite=ow)
+                count += 1
+            except Exception: pass
+        await interaction.followup.send(f"🔒 **Lockdown activated** — {count} channels locked. Reason: {reason}")
+
+    @app_commands.command(name="unlockdown", description="Unlock ALL channels.")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def unlockdown(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        count = 0
+        for ch in interaction.guild.text_channels:
+            try:
+                ow = ch.overwrites_for(interaction.guild.default_role)
+                ow.send_messages = True
+                await ch.set_permissions(interaction.guild.default_role, overwrite=ow)
+                count += 1
+            except Exception: pass
+        await interaction.followup.send(f"🔓 **Lockdown lifted** — {count} channels unlocked.")
+
+    # ── Nick ──────────────────────────────────────────────────────────────────
+    @app_commands.command(name="nick", description="Change a member's nickname.")
+    @app_commands.checks.has_permissions(manage_nicknames=True)
+    async def nick(self, interaction: discord.Interaction, member: discord.Member, nickname: str = None):
+        await member.edit(nick=nickname)
+        await interaction.response.send_message(f"✏️ Nickname {'set to **' + nickname + '**' if nickname else 'cleared'} for {member.mention}.")
+
+    # ── Roles ─────────────────────────────────────────────────────────────────
+    @app_commands.command(name="addrole", description="Add a role to a member.")
+    @app_commands.checks.has_permissions(manage_roles=True)
+    async def addrole(self, interaction: discord.Interaction, member: discord.Member, role: discord.Role):
+        await member.add_roles(role)
+        await interaction.response.send_message(f"✅ Added **{role.name}** to {member.mention}.")
+
+    @app_commands.command(name="removerole", description="Remove a role from a member.")
+    @app_commands.checks.has_permissions(manage_roles=True)
+    async def removerole(self, interaction: discord.Interaction, member: discord.Member, role: discord.Role):
+        await member.remove_roles(role)
+        await interaction.response.send_message(f"✅ Removed **{role.name}** from {member.mention}.")
+
+    @app_commands.command(name="massrole", description="Add a role to ALL members.")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def massrole(self, interaction: discord.Interaction, role: discord.Role):
+        await interaction.response.defer()
+        count = 0
+        for member in interaction.guild.members:
+            if role not in member.roles and not member.bot:
+                try: await member.add_roles(role); count += 1
+                except Exception: pass
+        await interaction.followup.send(f"✅ Added **{role.name}** to **{count}** members.")
+
+    # ── Voice ─────────────────────────────────────────────────────────────────
+    @app_commands.command(name="deafen", description="Server-deafen a member.")
+    @app_commands.checks.has_permissions(deafen_members=True)
+    async def deafen(self, interaction: discord.Interaction, member: discord.Member):
+        await member.edit(deafen=True)
+        await interaction.response.send_message(f"🔇 {member.mention} has been deafened.")
+
+    @app_commands.command(name="undeafen", description="Remove server-deafen from a member.")
+    @app_commands.checks.has_permissions(deafen_members=True)
+    async def undeafen(self, interaction: discord.Interaction, member: discord.Member):
+        await member.edit(deafen=False)
+        await interaction.response.send_message(f"🔊 {member.mention} has been undeafened.")
+
+    @app_commands.command(name="movevc", description="Move a member to another voice channel.")
+    @app_commands.checks.has_permissions(move_members=True)
+    async def movevc(self, interaction: discord.Interaction, member: discord.Member,
+                     channel: discord.VoiceChannel):
+        if not member.voice:
+            return await interaction.response.send_message("❌ That member is not in a VC.", ephemeral=True)
+        await member.move_to(channel)
+        await interaction.response.send_message(f"✅ Moved {member.mention} to **{channel.name}**.")
+
+    # ── Notes ─────────────────────────────────────────────────────────────────
+    @app_commands.command(name="note", description="Add a note to a member (staff-only, not visible to user).")
+    @app_commands.checks.has_permissions(moderate_members=True)
+    async def note(self, interaction: discord.Interaction, member: discord.Member, text: str):
+        self.notes.setdefault(interaction.guild_id, {}).setdefault(member.id, []).append(
+            {"note": text, "by": str(interaction.user), "time": datetime.datetime.utcnow().isoformat()})
+        await interaction.response.send_message(f"📝 Note added for {member.mention}.", ephemeral=True)
+
+    @app_commands.command(name="notes", description="View staff notes for a member.")
+    @app_commands.checks.has_permissions(moderate_members=True)
+    async def notes_cmd(self, interaction: discord.Interaction, member: discord.Member):
+        notes = self.notes.get(interaction.guild_id, {}).get(member.id, [])
+        if not notes:
+            return await interaction.response.send_message(f"No notes for {member.mention}.", ephemeral=True)
+        e = discord.Embed(title=f"📝 Notes for {member}", color=discord.Color.blurple())
+        for i, n in enumerate(notes, 1):
+            e.add_field(name=f"#{i} by {n['by']}", value=n["note"], inline=False)
         await interaction.response.send_message(embed=e, ephemeral=True)
 
-    @app_commands.command(name="whitelistrole", description="Whitelist a role from AutoMod.")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def whitelistrole(self, interaction: discord.Interaction, role: discord.Role):
-        s = self.get_settings(interaction.guild_id)
-        if role.id not in s["whitelist_roles"]: s["whitelist_roles"].append(role.id)
-        await interaction.response.send_message(f"✅ {role.mention} whitelisted.")
+    # ── Error handler ─────────────────────────────────────────────────────────
+    async def cog_app_command_error(self, interaction, error):
+        if isinstance(error, app_commands.MissingPermissions):
+            if not interaction.response.is_done():
+                await interaction.response.send_message("❌ You don't have permission.", ephemeral=True)
+        else:
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"❌ Error: {error}", ephemeral=True)
 
-    @app_commands.command(name="whitelistchannel", description="Whitelist a channel from AutoMod.")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def whitelistchannel(self, interaction: discord.Interaction, channel: discord.TextChannel):
-        s = self.get_settings(interaction.guild_id)
-        if channel.id not in s["whitelist_channels"]: s["whitelist_channels"].append(channel.id)
-        await interaction.response.send_message(f"✅ {channel.mention} whitelisted.")
 
 async def setup(bot):
-    await bot.add_cog(AutoMod(bot))
+    await bot.add_cog(Moderation(bot))
