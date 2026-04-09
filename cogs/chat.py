@@ -157,69 +157,68 @@ class Chat(commands.Cog):
         await interaction.response.send_message("🌌 The universe is expanding every second!")
 
     # ================= HELP =================
-    @app_commands.command(name="help", description="View all commands")
+    @app_commands.command(name="help", description="View all Eclipse Bot commands")
     async def help_cmd(self, interaction: discord.Interaction):
-
         embed = discord.Embed(
-            title="🌑 Eclipse Bot - All Commands",
-            description="Every available slash command:",
-            color=discord.Color.purple()
+            title="🌑 Eclipse Bot — All Commands",
+            description="Every available slash command across all modules:",
+            color=discord.Color.purple(),
+            timestamp=__import__("datetime").datetime.utcnow()
         )
-
         embed.add_field(
-            name="🛡️ Moderation",
-            value="`/ban /unban /kick /warn /warnings /clearwarnings /timeout /untimeout /purge /slowmode /lock /unlock /nick /addrole /removerole`",
-            inline=False
-        )
-
+            name="🔨 Moderation (20)",
+            value="`/ban` `/unban` `/softban` `/hackban` `/kick` `/warn` `/warnings` `/clearwarnings` "
+                  "`/timeout` `/untimeout` `/purge` `/slowmode` `/lock` `/unlock` `/lockdown` "
+                  "`/unlockdown` `/nick` `/addrole` `/removerole` `/massrole` `/deafen` `/undeafen` "
+                  "`/movevc` `/note` `/notes`",
+            inline=False)
         embed.add_field(
-            name="🤖 AutoMod",
-            value="`/automod /automod_set /automod_logchannel /addword /removeword`",
-            inline=False
-        )
-
+            name="🛡️ AutoMod (8)",
+            value="`/automod` `/automod_set` `/automod_logchannel` `/addword` `/removeword` "
+                  "`/whitelistrole` `/whitelistchannel` `/badwords`",
+            inline=False)
         embed.add_field(
-            name="📊 Leveling",
-            value="`/rank /leaderboard /setxp /addxp /resetxp /levelrole /levelchannel`",
-            inline=False
-        )
-
+            name="🚨 Anti-Nuke (6)",
+            value="`/antinuke` `/antinuke_status` `/antinuke_set` `/antinuke_log` "
+                  "`/antinuke_whitelist` `/antinuke_unwhitelist`",
+            inline=False)
         embed.add_field(
-            name="🎵 Music",
-            value="`/play /skip /pause /resume /stop /queue /nowplaying /volume /loop /shuffle /remove /disconnect`",
-            inline=False
-        )
-
+            name="📈 Leveling (9)",
+            value="`/rank` `/leaderboard` `/setlevelschannel` `/setlevel` `/setxp` "
+                  "`/addxp` `/resetxp` `/levelrole` `/levelchannel`",
+            inline=False)
         embed.add_field(
-            name="⚙️ Setup & Welcome",
-            value="`/setup /setwelcome /setmemberrole`",
-            inline=False
-        )
-
+            name="🎵 Music (13)",
+            value="`/play` `/skip` `/pause` `/resume` `/stop` `/queue` `/nowplaying` "
+                  "`/volume` `/loop` `/shuffle` `/remove` `/clearqueue` `/disconnect` `/playskip`",
+            inline=False)
         embed.add_field(
-            name="🎭 Roles",
-            value="`/reactionroles /removereactionrole /listreactionroles /autorole`",
-            inline=False
-        )
-
+            name="👋 Welcome & Leave (3)",
+            value="`/welcomeset` `/goodbyeset` `/testwelcome`",
+            inline=False)
         embed.add_field(
-            name="📜 Logging",
-            value="`/setlogchannel /togglelog`",
-            inline=False
-        )
-
+            name="🚀 Setup & Onboarding (3)",
+            value="`/setup` `/setwelcome` `/setmemberrole`",
+            inline=False)
         embed.add_field(
-            name="🧰 Utility",
-            value="`/ping /botinfo /embed /announce /snipe`",
-            inline=False
-        )
-
+            name="🏷️ Roles (5)",
+            value="`/reactionroles` `/removereactionrole` `/listreactionroles` `/autorole` `/roleinfo`",
+            inline=False)
         embed.add_field(
-            name="🎉 Fun & Chat",
-            value="`/chat /clearchat /8ball /joke /fact /roll /coinflip /choose /poll /avatar /userinfo /serverinfo`",
-            inline=False
-        )
-
+            name="📋 Logging (2)",
+            value="`/setlogchannel` `/togglelog`",
+            inline=False)
+        embed.add_field(
+            name="🔧 Utility (14)",
+            value="`/ping` `/botinfo` `/userinfo` `/serverinfo` `/avatar` `/servericon` "
+                  "`/roleinfo` `/channelinfo` `/embed` `/announce` `/snipe` `/afk` "
+                  "`/math` `/poll` `/giveaway` `/timer` `/inviteinfo` `/color`",
+            inline=False)
+        embed.add_field(
+            name="💬 AI Chat & Fun (8)",
+            value="`/chat` `/clearchat` `/8ball` `/joke` `/fact` `/roll` `/coinflip` `/choose`",
+            inline=False)
+        embed.set_footer(text="💡 Mention me or say 'eclipse' to chat with AI! | Eclipse Bot 🌑")
         await interaction.response.send_message(embed=embed)
 
 # ================= SETUP =================
